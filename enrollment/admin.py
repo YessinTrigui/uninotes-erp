@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Enrollment, Grade
+from .models import Enrollment, Grade, CartItem
 
 
 class GradeInline(admin.StackedInline):
@@ -35,3 +35,11 @@ class GradeAdmin(admin.ModelAdmin):
         return obj.is_passing()
     is_passing.boolean = True
     is_passing.short_description = 'Pass?'
+
+
+@admin.register(CartItem)
+class CartItemAdmin(admin.ModelAdmin):
+    list_display = ('student', 'subject', 'added_at')
+    list_filter = ('subject__semester__specialization', 'subject__semester__name')
+    search_fields = ('student__username', 'subject__code', 'subject__name')
+    date_hierarchy = 'added_at'

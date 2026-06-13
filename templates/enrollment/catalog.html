@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+
+{% block title %}Subject Catalog - UniNotes ERP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">Subject Catalog</h2>
+        {% if current_semester %}
+            <small class="text-muted">{{ current_semester.specialization.name }} — {{ current_semester.name }} ({{ current_semester.academic_year }})</small>
+        {% endif %}
+    </div>
+    <a href="{% url 'cart' %}" class="btn btn-dark position-relative">
+        <i class="fas fa-shopping-cart me-1"></i> My Cart
+        {% if cart_item_count > 0 %}
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                {{ cart_item_count }}
+            </span>
+        {% endif %}
+    </a>
+</div>
+
+{% if recommended_subjects %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-warning bg-opacity-25 border-0">
+        <h5 class="mb-0"><i class="fas fa-star me-2 text-warning"></i>Recommended for You</h5>
+        <small class="text-muted">Subjects you haven't enrolled in yet — mandatory ones appear first</small>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Code</th><th>Subject Name</th><th>Credits</th><th>Coeff.</th><th>Tutor</th><th>Seats</th><th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for subject in recommended_subjects %}
+                    <tr>
+                        <td><code>{{ subject.code }}</code></td>
+                        <td>
+                            {{ subject.name }}
+                            {% if subject.is_mandatory %}
+                                <span class="badge bg-danger ms-1">Mandatory</span>
+                            {% else %}
+                                <span class="badge bg-secondary ms-1">Elective</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ subject.credits }}</strong></td>
+                        <td>{{ subject.coefficient }}</td>
+                        <td>{{ subject.responsible_tutor.get_full_name|default:"—" }}</td>
+                        <td>{{ subject.enrolled_count }}/{{ subject.max_students }}</td>
+                        <td>
+                            <form method="post" action="{% url 'add_to_cart' subject.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-warning">
+                                    <i class="fas fa-plus me-1"></i>Add
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 pt-3">
+        <h5 class="mb-0"><i class="fas fa-book-open me-2"></i>All Available Subjects</h5>
+    </div>
+    <div class="card-body p-0">
+        {% if all_subjects %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Code</th><th>Subject Name</th><th>Credits</th><th>Coeff.</th><th>Tutor</th><th>Seats</th><th>Status</th><th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for subject in all_subjects %}
+                    <tr>
+                        <td><code>{{ subject.code }}</code></td>
+                        <td>
+                            {{ subject.name }}
+                            {% if subject.is_mandatory %}
+                                <span class="badge bg-danger ms-1">Mandatory</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ subject.credits }}</strong></td>
+                        <td>{{ subject.coefficient }}</td>
+                        <td>{{ subject.responsible_tutor.get_full_name|default:"—" }}</td>
+                        <td>
+                            {% if subject.has_available_seats %}
+                                {{ subject.enrolled_count }}/{{ subject.max_students }}
+                            {% else %}
+                                <span class="text-danger fw-bold">Full</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if subject.id in confirmed_subject_ids %}
+                                <span class="badge bg-success"><i class="fas fa-check me-1"></i>Enrolled</span>
+                            {% elif subject.id in cart_subject_ids %}
+                                <span class="badge bg-info text-dark"><i class="fas fa-cart-plus me-1"></i>In Cart</span>
+                            {% else %}
+                                <span class="badge bg-light text-dark border">Available</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if subject.id in confirmed_subject_ids %}
+                                <button class="btn btn-sm btn-outline-success" disabled>Enrolled</button>
+                            {% elif subject.id in cart_subject_ids %}
+                                <button class="btn btn-sm btn-outline-secondary" disabled>In Cart</button>
+                            {% elif not subject.has_available_seats %}
+                                <button class="btn btn-sm btn-outline-danger" disabled>Full</button>
+                            {% else %}
+                                <form method="post" action="{% url 'add_to_cart' subject.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-dark">
+                                        <i class="fas fa-plus me-1"></i>Add to Cart
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-folder-open fa-3x mb-3"></i>
+                <p>No subjects found for your current semester.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Dashboard - UniNotes ERP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">Welcome, {{ request.user.first_name }}</h2>
+        {% if current_semester %}
+            <small class="text-muted">
+                {{ current_semester.specialization.name }} — {{ current_semester.name }} ({{ current_semester.academic_year }})
+            </small>
+        {% else %}
+            <small class="text-warning"><i class="fas fa-exclamation-circle me-1"></i>No semester assigned yet</small>
+        {% endif %}
+    </div>
+    <div>
+        <a href="{% url 'subject_catalog' %}" class="btn btn-dark me-2">
+            <i class="fas fa-book-open me-1"></i>Browse Subjects
+        </a>
+        <a href="{% url 'cart' %}" class="btn btn-outline-dark">
+            <i class="fas fa-shopping-cart me-1"></i>Cart
+            {% if cart_item_count > 0 %}
+                <span class="badge bg-danger ms-1">{{ cart_item_count }}</span>
+            {% endif %}
+        </a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center py-3">
+            <div class="card-body">
+                <div class="fs-1 fw-bold text-dark">{{ confirmed_enrollments.count }}</div>
+                <div class="text-muted small">Enrolled Subjects</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center py-3">
+            <div class="card-body">
+                <div class="fs-1 fw-bold text-primary">{{ total_confirmed_credits }}</div>
+                <div class="text-muted small">Total Credits</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center py-3">
+            <div class="card-body">
+                <div class="fs-1 fw-bold text-success">{{ earned_credits }}</div>
+                <div class="text-muted small">Credits Earned (≥10)</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center py-3">
+            <div class="card-body">
+                {% if weighted_average is not None %}
+                    <div class="fs-1 fw-bold {% if weighted_average >= 10 %}text-success{% else %}text-danger{% endif %}">
+                        {{ weighted_average }}
+                    </div>
+                {% else %}
+                    <div class="fs-1 fw-bold text-muted">—</div>
+                {% endif %}
+                <div class="text-muted small">Weighted Average /20</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 pt-3">
+        <h5 class="mb-0"><i class="fas fa-list-check me-2"></i>My Academic Record</h5>
+    </div>
+    <div class="card-body p-0">
+        {% if confirmed_enrollments %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Code</th>
+                        <th>Subject</th>
+                        <th>Credits</th>
+                        <th>Coeff.</th>
+                        <th class="text-center">DS /20 <small class="text-muted">(40%)</small></th>
+                        <th class="text-center">Exam /20 <small class="text-muted">(60%)</small></th>
+                        <th class="text-center">Final Grade</th>
+                        <th class="text-center">Result</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for enrollment in confirmed_enrollments %}
+                    <tr>
+                        <td><code>{{ enrollment.subject.code }}</code></td>
+                        <td>{{ enrollment.subject.name }}</td>
+                        <td>{{ enrollment.subject.credits }}</td>
+                        <td>{{ enrollment.subject.coefficient }}</td>
+                        {% if enrollment.grade %}
+                            <td class="text-center">{{ enrollment.grade.continuous_assessment|default:"—" }}</td>
+                            <td class="text-center">{{ enrollment.grade.final_exam|default:"—" }}</td>
+                            <td class="text-center">
+                                {% if enrollment.grade.calculated_grade is not None %}
+                                    <strong class="{% if enrollment.grade.is_passing %}text-success{% else %}text-danger{% endif %}">
+                                        {{ enrollment.grade.calculated_grade }}/20
+                                    </strong>
+                                {% else %}
+                                    <span class="text-muted">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if enrollment.grade.calculated_grade is not None %}
+                                    {% if enrollment.grade.is_passing %}
+                                        <span class="badge bg-success"><i class="fas fa-check me-1"></i>Pass</span>
+                                    {% else %}
+                                        <span class="badge bg-danger"><i class="fas fa-times me-1"></i>Fail</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-light text-dark border">Not graded</span>
+                                {% endif %}
+                            </td>
+                        {% else %}
+                            <td colspan="4" class="text-center text-muted fst-italic">Awaiting grade entry</td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fas fa-folder-open fa-3x mb-3 d-block"></i>
+            <p>No confirmed enrollments yet.</p>
+            <a href="{% url 'subject_catalog' %}" class="btn btn-dark">Browse Subjects</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

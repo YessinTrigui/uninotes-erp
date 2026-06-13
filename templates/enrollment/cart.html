@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+
+{% block title %}My Cart - UniNotes ERP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>My Enrollment Cart</h2>
+    <a href="{% url 'subject_catalog' %}" class="btn btn-outline-dark">
+        <i class="fas fa-arrow-left me-1"></i>Back to Catalog
+    </a>
+</div>
+
+{% if current_semester %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h6 class="text-muted mb-1">Credit Usage — {{ current_semester.name }} ({{ current_semester.academic_year }})</h6>
+                <div class="progress" style="height: 20px;">
+                    {% if credit_limit > 0 %}
+                        {% widthratio total_used credit_limit 100 as usage_pct %}
+                        <div class="progress-bar {% if over_limit %}bg-danger{% elif usage_pct > 80 %}bg-warning{% else %}bg-success{% endif %}"
+                             style="width: {{ usage_pct }}%;">
+                            {{ total_used }}/{{ credit_limit }} cr.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-md-6 mt-3 mt-md-0">
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="fw-bold text-success fs-5">{{ confirmed_credits }}</div>
+                        <small class="text-muted">Confirmed</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="fw-bold text-info fs-5">{{ cart_credits }}</div>
+                        <small class="text-muted">In Cart</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="fw-bold {% if over_limit %}text-danger{% else %}text-dark{% endif %} fs-5">{{ remaining_credits }}</div>
+                        <small class="text-muted">Remaining</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% if over_limit %}
+        <div class="alert alert-danger mt-3 mb-0">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Over limit!</strong> Your cart exceeds the {{ credit_limit }}-credit limit by {{ total_used|add:"-"|add:credit_limit }} credits. Remove subjects before confirming.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% if cart_items %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 pt-3">
+        <h5 class="mb-0">Subjects in Cart ({{ cart_items|length }})</h5>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Code</th><th>Subject</th><th>Credits</th><th>Type</th><th>Tutor</th><th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in cart_items %}
+                <tr>
+                    <td><code>{{ item.subject.code }}</code></td>
+                    <td>{{ item.subject.name }}</td>
+                    <td><strong>{{ item.subject.credits }}</strong></td>
+                    <td>
+                        {% if item.subject.is_mandatory %}
+                            <span class="badge bg-danger">Mandatory</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Elective</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ item.subject.responsible_tutor.get_full_name|default:"—" }}</td>
+                    <td>
+                        <form method="post" action="{% url 'remove_from_cart' item.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-trash me-1"></i>Remove
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot class="table-light">
+                <tr>
+                    <td colspan="2" class="text-end fw-bold">Total credits in cart:</td>
+                    <td colspan="4"><strong>{{ cart_credits }} credits</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<div class="d-grid gap-2 d-md-flex justify-content-md-end">
+    <form method="post" action="{% url 'confirm_enrollment' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-success btn-lg {% if over_limit %}disabled{% endif %}"
+                {% if over_limit %}aria-disabled="true"{% endif %}>
+            <i class="fas fa-check-circle me-2"></i>Confirm Enrollment ({{ cart_credits }} credits)
+        </button>
+    </form>
+</div>
+
+{% else %}
+<div class="card border-0 shadow-sm">
+    <div class="card-body text-center py-5">
+        <i class="fas fa-shopping-cart fa-4x text-muted mb-3"></i>
+        <h5 class="text-muted">Your cart is empty</h5>
+        <a href="{% url 'subject_catalog' %}" class="btn btn-dark mt-2">Browse Subjects</a>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

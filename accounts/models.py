@@ -23,6 +23,14 @@ class User(AbstractUser):
 
     phone_number = models.CharField(max_length=20, blank=True, null=True)
 
+    current_semester = models.ForeignKey(
+        'catalog.Semester',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='students',
+    )
+
     def is_student(self):
         return self.role == self.ROLE_STUDENT
 

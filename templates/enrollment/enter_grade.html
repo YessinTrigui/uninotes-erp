@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block title %}Enter Grade - {{ enrollment.student.get_full_name }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7">
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="mb-0">Grade Entry</h2>
+            <a href="{% url 'subject_grades' enrollment.subject.id %}" class="btn btn-outline-dark">
+                <i class="fas fa-arrow-left me-1"></i>Back to Subject
+            </a>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <p class="mb-1 text-muted small">Student</p>
+                        <p class="fw-bold mb-0">{{ enrollment.student.get_full_name }}</p>
+                        <p class="text-muted small">ID: {{ enrollment.student.student_id|default:"N/A" }}</p>
+                    </div>
+                    <div class="col-6">
+                        <p class="mb-1 text-muted small">Subject</p>
+                        <p class="fw-bold mb-0">{{ enrollment.subject.name }}</p>
+                        <p class="text-muted small"><code>{{ enrollment.subject.code }}</code> — Coeff. {{ enrollment.subject.coefficient }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-dark text-white py-3">
+                <h5 class="mb-0"><i class="fas fa-pen me-2"></i>
+                    {% if grade.continuous_assessment is not None or grade.final_exam is not None %}
+                        Edit Grade
+                    {% else %}
+                        Enter Grade
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body p-4">
+
+                {% if grade.calculated_grade is not None %}
+                <div class="alert {% if grade.is_passing %}alert-success{% else %}alert-danger{% endif %} mb-4">
+                    <strong>Current Final Grade: {{ grade.calculated_grade }}/20</strong>
+                    — Formula: ({{ grade.continuous_assessment }} × 0.4) + ({{ grade.final_exam }} × 0.6)
+                    {% if grade.is_passing %}
+                        <span class="badge bg-success ms-2">PASS</span>
+                    {% else %}
+                        <span class="badge bg-danger ms-2">FAIL</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">DS Grade <span class="text-muted">(Continuous Assessment — 40%)</span></label>
+                            <input
+                                type="number"
+                                name="continuous_assessment"
+                                class="form-control form-control-lg"
+                                min="0" max="20" step="0.25"
+                                value="{{ grade.continuous_assessment|default:'' }}"
+                                placeholder="0.00 – 20.00"
+                            >
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Exam Grade <span class="text-muted">(Final Exam — 60%)</span></label>
+                            <input
+                                type="number"
+                                name="final_exam"
+                                class="form-control form-control-lg"
+                                min="0" max="20" step="0.25"
+                                value="{{ grade.final_exam|default:'' }}"
+                                placeholder="0.00 – 20.00"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Session</label>
+                        <select name="session" class="form-select">
+                            {% for value, label in session_choices %}
+                                <option value="{{ value }}" {% if grade.session == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="alert alert-light border mb-4">
+                        <strong>Grade formula:</strong>
+                        Final Grade = (DS × 0.4) + (Exam × 0.6)
+                        <br>
+                        <strong>Passing threshold:</strong> 10/20
+                    </div>
+
+                    <button type="submit" class="btn btn-dark btn-lg w-100">
+                        <i class="fas fa-save me-2"></i>Save Grade & Compute Final
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

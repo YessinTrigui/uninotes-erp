@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}Tutor Dashboard - UniNotes ERP{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h2 class="mb-0">Welcome, {{ request.user.first_name }}</h2>
+    <small class="text-muted">Tutor Dashboard — Grade Management</small>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 pt-3">
+        <h5 class="mb-0"><i class="fas fa-chalkboard-teacher me-2"></i>My Subjects</h5>
+    </div>
+    <div class="card-body p-0">
+        {% if taught_subjects %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Code</th>
+                        <th>Subject</th>
+                        <th>Semester</th>
+                        <th class="text-center">Enrolled</th>
+                        <th class="text-center">Graded</th>
+                        <th class="text-center">Avg Grade</th>
+                        <th class="text-center">Pass Rate</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for subject in taught_subjects %}
+                    <tr>
+                        <td><code>{{ subject.code }}</code></td>
+                        <td>{{ subject.name }}</td>
+                        <td>{{ subject.semester.specialization.code }} | {{ subject.semester.name }}</td>
+                        <td class="text-center">{{ subject.confirmed_count }}</td>
+                        <td class="text-center">
+                            {{ subject.graded_count }}
+                            {% if subject.confirmed_count > 0 %}
+                                <small class="text-muted">/ {{ subject.confirmed_count }}</small>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if subject.avg_grade is not None %}
+                                <strong class="{% if subject.avg_grade >= 10 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ subject.avg_grade|floatformat:2 }}/20
+                                </strong>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if subject.graded_count > 0 %}
+                                {% widthratio subject.pass_count subject.graded_count 100 as rate %}
+                                <span class="badge {% if rate >= 50 %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ rate }}%
+                                </span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'subject_grades' subject.id %}" class="btn btn-sm btn-dark">
+                                <i class="fas fa-pen me-1"></i>Manage Grades
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fas fa-chalkboard fa-3x mb-3 d-block"></i>
+            <p>No subjects assigned to you yet. Contact an administrator.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

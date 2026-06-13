@@ -78,3 +78,25 @@ class Grade(models.Model):
 
     def is_passing(self):
         return self.calculated_grade is not None and self.calculated_grade >= 10.0
+
+
+class CartItem(models.Model):
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        limit_choices_to={'role': 'student'},
+        related_name='cart_items',
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        related_name='cart_items',
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('student', 'subject')
+        ordering = ['added_at']
+
+    def __str__(self):
+        return f"Cart: {self.student.username} → {self.subject.code}"
