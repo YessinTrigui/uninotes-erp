@@ -1,3 +1,4 @@
+import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.db.models import Avg, Count, Sum, Q, F, FloatField, ExpressionWrapper
@@ -6,8 +7,10 @@ from .models import Enrollment, CartItem, Grade
 
 
 def subject_catalog_view(request):
-    if not request.user.is_authenticated or not request.user.is_student():
+    if not request.user.is_authenticated:
         return redirect('login')
+    if not request.user.is_student():
+        return redirect('dashboard')
 
     current_semester = request.user.current_semester
 
@@ -36,7 +39,6 @@ def subject_catalog_view(request):
         ).order_by('-is_mandatory', 'name')[:5]
 
     cart_items = CartItem.objects.filter(student=request.user).select_related('subject')
-
     cart_subject_id_set = set(cart_items.values_list('subject_id', flat=True))
 
     confirmed_subject_id_set = set(
@@ -59,8 +61,10 @@ def subject_catalog_view(request):
 
 
 def add_to_cart_view(request, subject_id):
-    if not request.user.is_authenticated or not request.user.is_student():
+    if not request.user.is_authenticated:
         return redirect('login')
+    if not request.user.is_student():
+        return redirect('dashboard')
 
     if request.method != 'POST':
         return redirect('subject_catalog')
@@ -96,8 +100,10 @@ def add_to_cart_view(request, subject_id):
 
 
 def remove_from_cart_view(request, item_id):
-    if not request.user.is_authenticated or not request.user.is_student():
+    if not request.user.is_authenticated:
         return redirect('login')
+    if not request.user.is_student():
+        return redirect('dashboard')
 
     if request.method != 'POST':
         return redirect('cart')
@@ -110,8 +116,10 @@ def remove_from_cart_view(request, item_id):
 
 
 def cart_view(request):
-    if not request.user.is_authenticated or not request.user.is_student():
+    if not request.user.is_authenticated:
         return redirect('login')
+    if not request.user.is_student():
+        return redirect('dashboard')
 
     current_semester = request.user.current_semester
     cart_items = CartItem.objects.filter(student=request.user).select_related('subject')
@@ -146,8 +154,10 @@ def cart_view(request):
 
 
 def confirm_enrollment_view(request):
-    if not request.user.is_authenticated or not request.user.is_student():
+    if not request.user.is_authenticated:
         return redirect('login')
+    if not request.user.is_student():
+        return redirect('dashboard')
 
     if request.method != 'POST':
         return redirect('cart')
@@ -171,7 +181,6 @@ def confirm_enrollment_view(request):
     ).aggregate(total=Sum('subject__credits'))['total'] or 0
 
     cart_credits = cart_items.aggregate(total=Sum('subject__credits'))['total'] or 0
-
     total_credits = confirmed_credits + cart_credits
 
     if total_credits > current_semester.credit_limit:
@@ -202,14 +211,15 @@ def confirm_enrollment_view(request):
         )
 
     cart_items.delete()
-
     messages.success(request, f'Enrollment confirmed! You are now registered in {item_count} subject(s) ({cart_credits} credits).')
     return redirect('student_dashboard')
 
 
 def student_dashboard_view(request):
-    if not request.user.is_authenticated or not request.user.is_student():
+    if not request.user.is_authenticated:
         return redirect('login')
+    if not request.user.is_student():
+        return redirect('dashboard')
 
     current_semester = request.user.current_semester
 
@@ -248,6 +258,23 @@ def student_dashboard_view(request):
 
     cart_item_count = CartItem.objects.filter(student=request.user).count()
 
+    chart_subject_labels = []
+    chart_grade_values = []
+    chart_bar_colors = []
+
+    for enrollment in confirmed_enrollments:
+        chart_subject_labels.append(enrollment.subject.code)
+        if enrollment.grade and enrollment.grade.calculated_grade is not None:
+            grade_val = enrollment.grade.calculated_grade
+            chart_grade_values.append(grade_val)
+            if grade_val >= 10:
+                chart_bar_colors.append('rgba(25, 135, 84, 0.85)')
+            else:
+                chart_bar_colors.append('rgba(220, 53, 69, 0.85)')
+        else:
+            chart_grade_values.append(0)
+            chart_bar_colors.append('rgba(173, 181, 189, 0.5)')
+
     context = {
         'current_semester': current_semester,
         'confirmed_enrollments': confirmed_enrollments,
@@ -255,14 +282,19 @@ def student_dashboard_view(request):
         'earned_credits': earned_credits,
         'weighted_average': weighted_average,
         'cart_item_count': cart_item_count,
+        'chart_subject_labels': json.dumps(chart_subject_labels),
+        'chart_grade_values': json.dumps(chart_grade_values),
+        'chart_bar_colors': json.dumps(chart_bar_colors),
     }
 
     return render(request, 'enrollment/student_dashboard.html', context)
 
 
 def tutor_dashboard_view(request):
-    if not request.user.is_authenticated or not request.user.is_tutor():
+    if not request.user.is_authenticated:
         return redirect('login')
+    if not request.user.is_tutor():
+        return redirect('dashboard')
 
     taught_subjects = Subject.objects.filter(
         responsible_tutor=request.user
@@ -275,9 +307,7 @@ def tutor_dashboard_view(request):
             'enrollments__grade',
             filter=Q(enrollments__grade__calculated_grade__isnull=False)
         ),
-        avg_grade=Avg(
-            'enrollments__grade__calculated_grade'
-        ),
+        avg_grade=Avg('enrollments__grade__calculated_grade'),
         pass_count=Count(
             'enrollments__grade',
             filter=Q(enrollments__grade__calculated_grade__gte=10)
@@ -292,8 +322,10 @@ def tutor_dashboard_view(request):
 
 
 def subject_grades_view(request, subject_id):
-    if not request.user.is_authenticated or not request.user.is_tutor():
+    if not request.user.is_authenticated:
         return redirect('login')
+    if not request.user.is_tutor():
+        return redirect('dashboard')
 
     subject = get_object_or_404(Subject, id=subject_id, responsible_tutor=request.user)
 
@@ -318,20 +350,49 @@ def subject_grades_view(request, subject_id):
     if stats['graded_count'] and stats['graded_count'] > 0:
         pass_rate = round((stats['pass_count'] / stats['graded_count']) * 100, 1)
 
+    bucket_labels = ['0-2', '2-4', '4-6', '6-8', '8-10', '10-12', '12-14', '14-16', '16-18', '18-20']
+    bucket_counts = [0] * 10
+    bucket_colors = [
+        'rgba(220, 53, 69, 0.85)',
+        'rgba(220, 53, 69, 0.85)',
+        'rgba(220, 53, 69, 0.85)',
+        'rgba(220, 53, 69, 0.85)',
+        'rgba(255, 193, 7, 0.85)',
+        'rgba(25, 135, 84, 0.85)',
+        'rgba(25, 135, 84, 0.85)',
+        'rgba(25, 135, 84, 0.85)',
+        'rgba(25, 135, 84, 0.85)',
+        'rgba(25, 135, 84, 0.85)',
+    ]
+
+    all_grade_values = Grade.objects.filter(
+        enrollment__subject=subject,
+        calculated_grade__isnull=False,
+    ).values_list('calculated_grade', flat=True)
+
+    for grade_val in all_grade_values:
+        bucket_index = min(int(grade_val // 2), 9)
+        bucket_counts[bucket_index] += 1
+
     context = {
         'subject': subject,
         'enrollments': enrollments,
         'stats': stats,
         'total_enrolled': total_enrolled,
         'pass_rate': pass_rate,
+        'recon_labels': json.dumps(bucket_labels),
+        'recon_counts': json.dumps(bucket_counts),
+        'recon_colors': json.dumps(bucket_colors),
     }
 
     return render(request, 'enrollment/subject_grades.html', context)
 
 
 def enter_grade_view(request, enrollment_id):
-    if not request.user.is_authenticated or not request.user.is_tutor():
+    if not request.user.is_authenticated:
         return redirect('login')
+    if not request.user.is_tutor():
+        return redirect('dashboard')
 
     enrollment = get_object_or_404(
         Enrollment,

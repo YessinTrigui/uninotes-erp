@@ -1,14 +1,16 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ subject.name }} — Grades{% endblock %}
+{% block title %}{{ subject.name }} &mdash; Grades{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h2 class="mb-0">{{ subject.name }}</h2>
         <small class="text-muted">
-            <code>{{ subject.code }}</code> —
-            {{ subject.semester.specialization.name }} | {{ subject.semester.name }} ({{ subject.semester.academic_year }})
+            <code>{{ subject.code }}</code> &mdash;
+            {{ subject.semester.specialization.name }} |
+            {{ subject.semester.name }} ({{ subject.semester.academic_year }})
+            &mdash; Coeff. {{ subject.coefficient }}
         </small>
     </div>
     <a href="{% url 'tutor_dashboard' %}" class="btn btn-outline-dark">
@@ -41,7 +43,7 @@
                         {{ stats.avg_grade|floatformat:2 }}
                     </div>
                 {% else %}
-                    <div class="fs-2 fw-bold text-muted">—</div>
+                    <div class="fs-2 fw-bold text-muted">&mdash;</div>
                 {% endif %}
                 <div class="text-muted small">Class Average /20</div>
             </div>
@@ -55,7 +57,7 @@
                         {{ pass_rate }}%
                     </div>
                 {% else %}
-                    <div class="fs-2 fw-bold text-muted">—</div>
+                    <div class="fs-2 fw-bold text-muted">&mdash;</div>
                 {% endif %}
                 <div class="text-muted small">Pass Rate</div>
             </div>
@@ -63,10 +65,27 @@
     </div>
 </div>
 
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 pt-3">
+        <h5 class="mb-0">
+            <i class="fas fa-chart-column me-2"></i>Reconstitution Curve &mdash; Grade Distribution
+        </h5>
+        <small class="text-muted">
+            Red = Failing (&lt;10) &nbsp;|&nbsp; Yellow = Borderline (8&ndash;10) &nbsp;|&nbsp; Green = Passing (&ge;10).
+            Each bar counts how many students scored in that 2-point range.
+        </small>
+    </div>
+    <div class="card-body">
+        <canvas id="reconstitutionChart" height="90"></canvas>
+    </div>
+</div>
+
 <div class="card border-0 shadow-sm">
-    <div class="card-header bg-white border-0 pt-3 d-flex justify-content-between">
+    <div class="card-header bg-white border-0 pt-3 d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="fas fa-users me-2"></i>Student Grade List</h5>
-        <small class="text-muted align-self-center">{{ stats.pass_count|default:"0" }} passed / {{ stats.fail_count|default:"0" }} failed</small>
+        <small class="text-muted">
+            {{ stats.pass_count|default:"0" }} passed &nbsp;/&nbsp; {{ stats.fail_count|default:"0" }} failed
+        </small>
     </div>
     <div class="card-body p-0">
         {% if enrollments %}
@@ -91,10 +110,10 @@
                             <strong>{{ enrollment.student.get_full_name }}</strong>
                             <br><small class="text-muted">@{{ enrollment.student.username }}</small>
                         </td>
-                        <td><code>{{ enrollment.student.student_id|default:"—" }}</code></td>
+                        <td><code>{{ enrollment.student.student_id|default:"&mdash;" }}</code></td>
                         {% if enrollment.grade %}
-                            <td class="text-center">{{ enrollment.grade.continuous_assessment|default:"—" }}</td>
-                            <td class="text-center">{{ enrollment.grade.final_exam|default:"—" }}</td>
+                            <td class="text-center">{{ enrollment.grade.continuous_assessment|default:"&mdash;" }}</td>
+                            <td class="text-center">{{ enrollment.grade.final_exam|default:"&mdash;" }}</td>
                             <td class="text-center">
                                 {% if enrollment.grade.calculated_grade is not None %}
                                     <strong class="{% if enrollment.grade.is_passing %}text-success{% else %}text-danger{% endif %}">
@@ -112,7 +131,7 @@
                                         <span class="badge bg-danger">Fail</span>
                                     {% endif %}
                                 {% else %}
-                                    <span class="badge bg-light text-dark border">—</span>
+                                    <span class="badge bg-light text-dark border">&mdash;</span>
                                 {% endif %}
                             </td>
                             <td class="text-center">
@@ -140,4 +159,75 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const reconCtx = document.getElementById('reconstitutionChart').getContext('2d');
+
+    const reconLabels = {{ recon_labels|safe }};
+    const reconCounts = {{ recon_counts|safe }};
+    const reconColors = {{ recon_colors|safe }};
+
+    new Chart(reconCtx, {
+        type: 'bar',
+        data: {
+            labels: reconLabels,
+            datasets: [
+                {
+                    label: 'Number of Students',
+                    data: reconCounts,
+                    backgroundColor: reconColors,
+                    borderColor: reconColors,
+                    borderWidth: 1,
+                    borderRadius: 4,
+                },
+                {
+                    label: 'Passing Threshold',
+                    data: reconLabels.map(() => null),
+                    type: 'line',
+                    borderColor: 'transparent',
+                    pointRadius: 0,
+                    fill: false,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                title: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const count = context.parsed.y;
+                            return `${count} student${count !== 1 ? 's' : ''}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1,
+                        precision: 0
+                    },
+                    title: { display: true, text: 'Number of Students' },
+                    grid: {
+                        color: 'rgba(0,0,0,0.05)'
+                    }
+                },
+                x: {
+                    title: { display: true, text: 'Grade Range /20' },
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+</script>
 {% endblock %}

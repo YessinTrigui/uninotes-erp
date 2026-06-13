@@ -8,10 +8,13 @@
         <h2 class="mb-0">Welcome, {{ request.user.first_name }}</h2>
         {% if current_semester %}
             <small class="text-muted">
-                {{ current_semester.specialization.name }} — {{ current_semester.name }} ({{ current_semester.academic_year }})
+                {{ current_semester.specialization.name }} &mdash;
+                {{ current_semester.name }} ({{ current_semester.academic_year }})
             </small>
         {% else %}
-            <small class="text-warning"><i class="fas fa-exclamation-circle me-1"></i>No semester assigned yet</small>
+            <small class="text-warning">
+                <i class="fas fa-exclamation-circle me-1"></i>No semester assigned yet
+            </small>
         {% endif %}
     </div>
     <div>
@@ -48,7 +51,7 @@
         <div class="card border-0 shadow-sm text-center py-3">
             <div class="card-body">
                 <div class="fs-1 fw-bold text-success">{{ earned_credits }}</div>
-                <div class="text-muted small">Credits Earned (≥10)</div>
+                <div class="text-muted small">Credits Earned (&ge;10)</div>
             </div>
         </div>
     </div>
@@ -60,13 +63,30 @@
                         {{ weighted_average }}
                     </div>
                 {% else %}
-                    <div class="fs-1 fw-bold text-muted">—</div>
+                    <div class="fs-1 fw-bold text-muted">&mdash;</div>
                 {% endif %}
                 <div class="text-muted small">Weighted Average /20</div>
             </div>
         </div>
     </div>
 </div>
+
+{% if confirmed_enrollments %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 pt-3">
+        <h5 class="mb-0">
+            <i class="fas fa-chart-bar me-2"></i>My Grades — Visual Overview
+        </h5>
+        <small class="text-muted">
+            Green = Pass (&ge;10) &nbsp;|&nbsp; Red = Fail (&lt;10) &nbsp;|&nbsp; Grey = Not graded yet.
+            The dashed red line marks the passing threshold.
+        </small>
+    </div>
+    <div class="card-body">
+        <canvas id="studentGradesChart" height="100"></canvas>
+    </div>
+</div>
+{% endif %}
 
 <div class="card border-0 shadow-sm">
     <div class="card-header bg-white border-0 pt-3">
@@ -96,8 +116,8 @@
                         <td>{{ enrollment.subject.credits }}</td>
                         <td>{{ enrollment.subject.coefficient }}</td>
                         {% if enrollment.grade %}
-                            <td class="text-center">{{ enrollment.grade.continuous_assessment|default:"—" }}</td>
-                            <td class="text-center">{{ enrollment.grade.final_exam|default:"—" }}</td>
+                            <td class="text-center">{{ enrollment.grade.continuous_assessment|default:"&mdash;" }}</td>
+                            <td class="text-center">{{ enrollment.grade.final_exam|default:"&mdash;" }}</td>
                             <td class="text-center">
                                 {% if enrollment.grade.calculated_grade is not None %}
                                     <strong class="{% if enrollment.grade.is_passing %}text-success{% else %}text-danger{% endif %}">
@@ -135,4 +155,79 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% if confirmed_enrollments %}
+<script>
+    const studentCtx = document.getElementById('studentGradesChart').getContext('2d');
+
+    const subjectLabels = {{ chart_subject_labels|safe }};
+    const gradeValues   = {{ chart_grade_values|safe }};
+    const barColors     = {{ chart_bar_colors|safe }};
+
+    new Chart(studentCtx, {
+        type: 'bar',
+        data: {
+            labels: subjectLabels,
+            datasets: [
+                {
+                    label: 'Final Grade /20',
+                    data: gradeValues,
+                    backgroundColor: barColors,
+                    borderColor: barColors,
+                    borderWidth: 1,
+                    borderRadius: 4,
+                },
+                {
+                    label: 'Passing Threshold (10/20)',
+                    data: subjectLabels.map(() => 10),
+                    type: 'line',
+                    borderColor: 'rgba(220, 53, 69, 0.7)',
+                    borderWidth: 2,
+                    borderDash: [6, 4],
+                    pointRadius: 0,
+                    fill: false,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            if (context.datasetIndex === 1) return null;
+                            const val = context.parsed.y;
+                            if (val === 0) return 'Not graded yet';
+                            return `Grade: ${val}/20`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 20,
+                    ticks: { stepSize: 2 },
+                    title: { display: true, text: 'Grade /20' },
+                    grid: {
+                        color: function(context) {
+                            if (context.tick.value === 10) return 'rgba(220, 53, 69, 0.3)';
+                            return 'rgba(0, 0, 0, 0.05)';
+                        }
+                    }
+                },
+                x: {
+                    title: { display: true, text: 'Subject Code' }
+                }
+            }
+        }
+    });
+</script>
+{% endif %}
 {% endblock %}
